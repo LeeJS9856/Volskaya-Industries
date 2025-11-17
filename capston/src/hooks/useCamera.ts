@@ -1,13 +1,16 @@
+import { useEffect, useState } from 'react';
 import { Camera } from 'react-native-vision-camera';
 
-const requestPermission = async () => {
-  const permission = await Camera.requestCameraPermission();
+export const useCamera = () => {
+  const [permission, setPermission] = useState<'granted' | 'denied' | 'pending'>('pending');
 
-  if (permission === 'granted') {
-    // 권한 허용 상태
-    console.log('Camera permission granted');
-  } else {
-    // 권한 거부 상태
-    console.log('Camera permission denied');
-  }
+  useEffect(() => {
+    const checkAndRequest = async () => {
+      const status = await Camera.requestCameraPermission();
+      setPermission(status);
+    };
+    checkAndRequest();
+  }, []);
+
+  return permission;
 };
