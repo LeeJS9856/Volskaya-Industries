@@ -2,6 +2,7 @@ import React, { useRef, useState } from 'react';
 import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import { Camera, useCameraDevices, CameraDevice } from 'react-native-vision-camera';
 import { useCamera } from '../hooks/useCamera';
+import RNFS from 'react-native-fs';
 
 type Props = {
   onPhotoTaken: (photoPath: string) => void;
@@ -14,17 +15,22 @@ export const CameraView: React.FC<Props> = ({ onPhotoTaken }) => {
   const backCamera = devices.find(device => device.position === 'back');
   const [cameraReady, setCameraReady] = useState(false);
 
-  const takePhoto = async () => {
-    if (!camera.current) return;
-    try {
-      const photo = await camera.current.takePhoto();
-      if (photo.path) {
-        onPhotoTaken(photo.path);
-      }
-    } catch (e) {
-      console.error('Could not take photo', e);
+const takePhoto = async () => {
+  if (!camera.current) return;
+  try {
+    const photo = await camera.current.takePhoto();
+    if (photo.path) {
+      // 사진 경로를 base64로 읽기
+      const base64String = await RNFS.readFile(photo.path, 'base64');
+      // base64 문자열에 data Uri prefix 추가
+      const base64Data = `data:image/jpeg;base64,${base64String}`;
+      onPhotoTaken(base64Data);
     }
-  };
+  } catch (e) {
+    console.error('Could not take photo', e);
+  }
+};
+
 
   if (permission === 'pending')
     return <Text>카메라 권한 확인중...</Text>;

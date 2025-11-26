@@ -67,9 +67,11 @@ class FaceRecognitionSystem:
             face_encodings = face_recognition.face_encodings(image)
             
             if len(face_encodings) == 0:
+                print('얼굴을 찾을 수 없습니다.')
                 return False, "사진에서 얼굴을 찾을 수 없습니다."
             
             if len(face_encodings) > 1:
+                print('사진에 여러 명의 얼굴이 있습니다.')
                 return False, "사진에 여러 명의 얼굴이 있습니다. 한 명만 있는 사진을 사용해주세요."
             
             # 데이터 추가
@@ -79,7 +81,7 @@ class FaceRecognitionSystem:
             
             # 저장
             self.save_known_faces()
-            
+            print(f'✓ {name}님이 성공적으로 등록되었습니다.')
             return True, f"{name}님이 성공적으로 등록되었습니다."
             
         except Exception as e:
@@ -91,6 +93,7 @@ class FaceRecognitionSystem:
         image_data: numpy array 형태의 이미지
         """
         if len(self.known_face_encodings) == 0:
+            print("등록된 얼굴 데이터가 없습니다.")
             return {
                 'success': False,
                 'message': '등록된 얼굴 데이터가 없습니다.'
@@ -101,6 +104,7 @@ class FaceRecognitionSystem:
             face_locations = face_recognition.face_locations(image_data)
             
             if len(face_locations) == 0:
+                print('얼굴을 찾을 수 없습니다.')
                 return {
                     'success': False,
                     'message': '얼굴을 찾을 수 없습니다.'
@@ -144,7 +148,8 @@ class FaceRecognitionSystem:
                     'confidence': confidence,
                     'location': face_location
                 })
-            
+            print(f"✓ {len(results)}명의 얼굴 인식 완료")
+            print(results)
             return {
                 'success': True,
                 'faces': results

@@ -15,20 +15,24 @@ export const useFaceRecognition = () => {
     return null;
   };
 
-  const addPerson = async (imageBase64: string, name: string, relation: string): Promise<boolean> => {
-    try {
-      const formData = new FormData();
-      formData.append('image', imageBase64);
-      formData.append('name', name);
-      formData.append('relation', relation);
-      const { data } = await axios.post(`${API_BASE_URL}/add-person`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      return data.success;
-    } catch {
-      return false;
-    }
-  };
+const addPerson = async (imageUri: string, name: string, relation: string): Promise<boolean> => {
+  try {
+    const formData = new FormData();
+    formData.append('image', {
+      uri: imageUri,
+      type: 'image/jpeg',
+      name: 'photo.jpg',
+    });
+    formData.append('name', name);
+    formData.append('relation', relation);
+    const { data } = await axios.post(`${API_BASE_URL}/add-person`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data.success;
+  } catch {
+    return false;
+  }
+};
 
   return { recognizePerson, addPerson };
 };
