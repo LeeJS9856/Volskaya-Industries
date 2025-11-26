@@ -10,18 +10,15 @@ class FaceRecognitionSystem:
         self.known_face_encodings = []
         self.known_face_names = []
         self.known_face_relations = []
-        self.known_face_images = []  # 원본 이미지 경로 저장
+        self.known_face_images = []
         
-        # known_faces 폴더가 없으면 생성
         if not os.path.exists(known_faces_dir):
             os.makedirs(known_faces_dir)
         
-        # 이미지 저장 폴더
         self.images_dir = os.path.join(known_faces_dir, 'images')
         if not os.path.exists(self.images_dir):
             os.makedirs(self.images_dir)
         
-        # 저장된 데이터 로드
         self.load_known_faces()
     
     def load_known_faces(self):
@@ -36,7 +33,7 @@ class FaceRecognitionSystem:
                 self.known_face_relations = data['relations']
             print(f"✓ {len(self.known_face_names)}명의 얼굴 데이터 로드 완료")
         else:
-            print("저장된 얼굴 데이터가 없습니다. 새로 학습이 필요합니다.")
+            print("저장된 얼굴 데이터가 없습니다.")
     
     def save_known_faces(self):
         """얼굴 데이터 저장"""
@@ -53,29 +50,52 @@ class FaceRecognitionSystem:
         print(f"✓ {len(self.known_face_names)}명의 얼굴 데이터 저장 완료")
     
     def add_person(self, image_path, name, relation):
-        """
-        새로운 사람 추가
-        image_path: 사진 파일 경로
-        name: 이름
-        relation: 관계 (예: "딸", "아들", "며느리")
-        """
         try:
-            # 이미지 로드
-            image = face_recognition.load_image_file(image_path)
+            # cv2로 이미지 읽기 (한글 경로 문제 해결)
+            import cv2
             
-            # 얼굴 인코딩
-            face_encodings = face_recognition.face_encodings(image)
+            # 절대 경로로 변환
+            abs_path = os.path.abspath(image_path)
+            print(f"절대 경로: {abs_path}")
+            print(f"파일 존재: {os.path.exists(abs_path)}")
             
-            if len(face_encodings) == 0:
-                print('얼굴을 찾을 수 없습니다.')
+            # cv2로 이미지 읽기
+            img_array = cv2.imread(abs_path)
+            
+            if img_array is None:
+                # 한글 경로 문제 해결 - imdecode 사용
+                with open(abs_path, 'rb') as f:
+                    image_bytes = f.read()
+                img_array = cv2.imdecode(
+                    np.frombuffer(image_bytes, np.uint8), 
+                    cv2.IMREAD_COLOR
+                )
+            
+            if img_array is None:
+                return False, "이미지를 읽을 수 없습니다."
+            
+            print(f"이미지 크기: {img_array.shape}")
+            
+            # RGB로 변환 (OpenCV는 BGR)
+            img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
+            
+            # numpy array로 직접 전달
+            embedding_objs = DeepFace.represent(
+                img_path=img_array,  # 경로 대신 array 전달
+                model_name='Facenet',
+                enforce_detection=False,  # False로 설정
+                detector_backend='opencv'
+            )
+            
+            if len(embedding_objs) == 0:
                 return False, "사진에서 얼굴을 찾을 수 없습니다."
             
-            if len(face_encodings) > 1:
-                print('사진에 여러 명의 얼굴이 있습니다.')
-                return False, "사진에 여러 명의 얼굴이 있습니다. 한 명만 있는 사진을 사용해주세요."
+            face_embedding = embedding_objs[0]['embedding']
+            
+            print(f"임베딩 크기: {len(face_embedding)}")
             
             # 데이터 추가
-            self.known_face_encodings.append(face_encodings[0])
+            self.known_face_encodings.append(face_embedding)
             self.known_face_names.append(name)
             self.known_face_relations.append(relation)
             
@@ -85,82 +105,104 @@ class FaceRecognitionSystem:
             return True, f"{name}님이 성공적으로 등록되었습니다."
             
         except Exception as e:
+            print(f"등록 실패: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return False, f"오류 발생: {str(e)}"
-    
+        
     def recognize_face(self, image_data):
-        """
-        이미지에서 얼굴 인식
-        image_data: numpy array 형태의 이미지
-        """
+        print("=== recognize_face 호출됨 ===")
+        print(f"등록된 얼굴 수: {len(self.known_face_encodings)}")
+        
         if len(self.known_face_encodings) == 0:
-            print("등록된 얼굴 데이터가 없습니다.")
+            print("등록된 얼굴 없음")
             return {
                 'success': False,
                 'message': '등록된 얼굴 데이터가 없습니다.'
             }
         
         try:
-            # 얼굴 위치 찾기
-            face_locations = face_recognition.face_locations(image_data)
+            print(f"인식 시작 - 이미지 shape: {image_data.shape}")
             
-            if len(face_locations) == 0:
-                print('얼굴을 찾을 수 없습니다.')
+            # DeepFace로 얼굴 임베딩 추출
+            print("DeepFace.represent 호출...")
+            embedding_objs = DeepFace.represent(
+                img_path=image_data,
+                model_name='Facenet',
+                enforce_detection=False,
+                detector_backend='opencv'
+            )
+            
+            print(f"DeepFace 결과: {len(embedding_objs)}개의 얼굴 감지")
+            
+            if len(embedding_objs) == 0:
+                print("얼굴 감지 실패")
                 return {
                     'success': False,
                     'message': '얼굴을 찾을 수 없습니다.'
                 }
             
-            # 얼굴 인코딩
-            face_encodings = face_recognition.face_encodings(image_data, face_locations)
-            
             results = []
             
-            for face_encoding, face_location in zip(face_encodings, face_locations):
-                # 알려진 얼굴과 비교
-                matches = face_recognition.compare_faces(
-                    self.known_face_encodings, 
-                    face_encoding,
-                    tolerance=0.6  # 0.6이 기본값, 낮을수록 엄격
-                )
+            for idx, embedding_obj in enumerate(embedding_objs):
+                print(f"얼굴 {idx+1} 처리 중...")
+                face_embedding = np.array(embedding_obj['embedding'])
+                print(f"임베딩 크기: {len(face_embedding)}")
                 
-                name = "모르는 사람"
-                relation = ""
-                confidence = 0
+                # 코사인 유사도 계산
+                similarities = []
+                for i, known_encoding in enumerate(self.known_face_encodings):
+                    known_encoding = np.array(known_encoding)
+                    similarity = np.dot(face_embedding, known_encoding) / (
+                        np.linalg.norm(face_embedding) * np.linalg.norm(known_encoding)
+                    )
+                    similarities.append(similarity)
+                    print(f"  {self.known_face_names[i]}: {similarity:.4f}")
                 
-                # 거리 계산 (낮을수록 유사)
-                face_distances = face_recognition.face_distance(
-                    self.known_face_encodings, 
-                    face_encoding
-                )
-                
-                if len(face_distances) > 0:
-                    best_match_index = np.argmin(face_distances)
+                # 가장 유사한 얼굴 찾기
+                if len(similarities) > 0:
+                    best_match_idx = np.argmax(similarities)
+                    best_similarity = similarities[best_match_idx]
                     
-                    if matches[best_match_index]:
-                        name = self.known_face_names[best_match_index]
-                        relation = self.known_face_relations[best_match_index]
-                        # 신뢰도를 퍼센트로 변환 (거리가 0이면 100%)
-                        confidence = round((1 - face_distances[best_match_index]) * 100, 2)
-                
-                results.append({
-                    'name': name,
-                    'relation': relation,
-                    'confidence': confidence,
-                    'location': face_location
-                })
-            print(f"✓ {len(results)}명의 얼굴 인식 완료")
-            print(results)
-            return {
+                    print(f"최고 유사도: {best_similarity:.4f} ({self.known_face_names[best_match_idx]})")
+                    
+                    # 임계값 설정
+                    if best_similarity > 0.4:
+                        name = self.known_face_names[best_match_idx]
+                        relation = self.known_face_relations[best_match_idx]
+                        confidence = round(best_similarity * 100, 2)
+                        print(f"✓ 인식 성공: {name} ({relation})")
+                    else:
+                        name = "모르는 사람"
+                        relation = ""
+                        confidence = round(best_similarity * 100, 2)
+                        print(f"✗ 유사도 낮음: {best_similarity:.4f}")
+                    
+                    results.append({
+                        'name': name,
+                        'relation': relation,
+                        'confidence': confidence
+                    })
+            
+            print(f"✓ 최종 결과: {results}")
+            
+            final_result = {
                 'success': True,
                 'faces': results
             }
+            print(f"반환할 결과: {final_result}")
+            return final_result
             
         except Exception as e:
+            print(f"!!! 인식 실패 !!!")
+            print(f"에러: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return {
                 'success': False,
                 'message': f'오류 발생: {str(e)}'
             }
-    
+
     def get_all_persons(self):
         """등록된 모든 사람 목록 반환"""
         persons = []
