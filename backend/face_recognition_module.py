@@ -109,7 +109,7 @@ class FaceRecognitionSystem:
             import traceback
             traceback.print_exc()
             return False, f"오류 발생: {str(e)}"
-        
+  
     def recognize_face(self, image_data):
         print("=== recognize_face 호출됨 ===")
         print(f"등록된 얼굴 수: {len(self.known_face_encodings)}")
@@ -124,8 +124,6 @@ class FaceRecognitionSystem:
         try:
             print(f"인식 시작 - 이미지 shape: {image_data.shape}")
             
-            # DeepFace로 얼굴 임베딩 추출
-            print("DeepFace.represent 호출...")
             embedding_objs = DeepFace.represent(
                 img_path=image_data,
                 model_name='ArcFace',
@@ -147,27 +145,33 @@ class FaceRecognitionSystem:
             for idx, embedding_obj in enumerate(embedding_objs):
                 print(f"얼굴 {idx+1} 처리 중...")
                 face_embedding = np.array(embedding_obj['embedding'])
-                print(f"임베딩 크기: {len(face_embedding)}")
                 
-                # 코사인 유사도 계산
-                similarities = []
-                for i, known_encoding in enumerate(self.known_face_encodings):
-                    known_encoding = np.array(known_encoding)
-                    similarity = np.dot(face_embedding, known_encoding) / (
-                        np.linalg.norm(face_embedding) * np.linalg.norm(known_encoding)
-                    )
-                    similarities.append(similarity)
-                    print(f"  {self.known_face_names[i]}: {similarity:.4f}")
+                best_similarities = []  # 각 사람별 최고 유사도
+                
+                # ✅ 각 등록된 사람에 대해
+                for i, person_embeddings in enumerate(self.known_face_encodings):
+                    max_similarity = 0
+                    
+                    # 그 사람의 모든 임베딩과 비교해서 최고값 찾기
+                    for known_encoding in person_embeddings:
+                        known_encoding = np.array(known_encoding)
+                        similarity = np.dot(face_embedding, known_encoding) / (
+                            np.linalg.norm(face_embedding) * np.linalg.norm(known_encoding)
+                        )
+                        max_similarity = max(max_similarity, similarity)
+                    
+                    best_similarities.append(max_similarity)
+                    print(f"  {self.known_face_names[i]}: 최고 {max_similarity:.4f}")
                 
                 # 가장 유사한 얼굴 찾기
-                if len(similarities) > 0:
-                    best_match_idx = np.argmax(similarities)
-                    best_similarity = similarities[best_match_idx]
+                if len(best_similarities) > 0:
+                    best_match_idx = np.argmax(best_similarities)
+                    best_similarity = best_similarities[best_match_idx]
                     
                     print(f"최고 유사도: {best_similarity:.4f} ({self.known_face_names[best_match_idx]})")
                     
-                    # 임계값 설정
-                    if best_similarity > 0.7:
+                    # ✅ 임계값 낮춤 (다양한 각도 커버)
+                    if best_similarity > 0.6:  # 0.7 → 0.6
                         name = self.known_face_names[best_match_idx]
                         relation = self.known_face_relations[best_match_idx]
                         confidence = round(best_similarity * 100, 2)
@@ -190,7 +194,6 @@ class FaceRecognitionSystem:
                 'success': True,
                 'faces': results
             }
-            print(f"반환할 결과: {final_result}")
             return final_result
             
         except Exception as e:
@@ -202,7 +205,6 @@ class FaceRecognitionSystem:
                 'success': False,
                 'message': f'오류 발생: {str(e)}'
             }
-
     def get_all_persons(self):
         """등록된 모든 사람 목록 반환"""
         persons = []
@@ -231,52 +233,52 @@ class FaceRecognitionSystem:
         except Exception as e:
             return False, f"오류 발생: {str(e)}"
 
-    def add_person_multiple(self, image_paths, name, relation):
-        """여러 이미지로 사람 등록"""
-        try:
-            embeddings = []
+def add_person_multiple(self, image_paths, name, relation):
+    """여러 이미지를 모두 저장"""
+    try:
+        embeddings = []
+        
+        for idx, image_path in enumerate(image_paths):
+            print(f"이미지 {idx+1}/{len(image_paths)} 처리 중...")
             
-            for idx, image_path in enumerate(image_paths):
-                print(f"이미지 {idx+1}/{len(image_paths)} 처리 중...")
-            
-                img_array = cv2.imread(image_path)
-                if img_array is None:
-                    with open(image_path, 'rb') as f:
-                        image_bytes = f.read()
-                    img_array = cv2.imdecode(
-                        np.frombuffer(image_bytes, np.uint8), 
-                        cv2.IMREAD_COLOR
-                    )
-                
-                if img_array is None:
-                    continue
-                
-                img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
-                
-                embedding_objs = DeepFace.represent(
-                    img_path=img_array,
-                    model_name='ArcFace',
-                    enforce_detection=False,
-                    detector_backend='retinaface'
+            img_array = cv2.imread(image_path)
+            if img_array is None:
+                with open(image_path, 'rb') as f:
+                    image_bytes = f.read()
+                img_array = cv2.imdecode(
+                    np.frombuffer(image_bytes, np.uint8), 
+                    cv2.IMREAD_COLOR
                 )
-                
-                if len(embedding_objs) > 0:
-                    embeddings.append(embedding_objs[0]['embedding'])
             
-            if len(embeddings) == 0:
-                return False, "모든 사진에서 얼굴을 찾을 수 없습니다."
+            if img_array is None:
+                continue
             
-            # 평균 임베딩 계산
-            avg_embedding = np.mean(embeddings, axis=0).tolist()
+            img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
             
-            self.known_face_encodings.append(avg_embedding)
-            self.known_face_names.append(name)
-            self.known_face_relations.append(relation)
+            embedding_objs = DeepFace.represent(
+                img_path=img_array,
+                model_name='ArcFace',
+                enforce_detection=False,
+                detector_backend='retinaface'
+            )
             
-            self.save_known_faces()
-            print(f'✓ {name}님이 {len(embeddings)}장의 사진으로 등록되었습니다.')
-            return True, f"{name}님이 성공적으로 등록되었습니다."
-            
-        except Exception as e:
-            print(f"등록 실패: {str(e)}")
-            return False, f"오류 발생: {str(e)}"
+            if len(embedding_objs) > 0:
+                embeddings.append(embedding_objs[0]['embedding'])
+        
+        if len(embeddings) == 0:
+            return False, "모든 사진에서 얼굴을 찾을 수 없습니다."
+        
+        # ✅ 리스트로 저장
+        self.known_face_encodings.append(embeddings)
+        self.known_face_names.append(name)
+        self.known_face_relations.append(relation)
+        
+        self.save_known_faces()
+        print(f'✓ {name}님이 {len(embeddings)}장의 사진으로 등록되었습니다.')
+        return True, f"{name}님이 성공적으로 등록되었습니다."
+        
+    except Exception as e:
+        print(f"등록 실패: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False, f"오류 발생: {str(e)}"

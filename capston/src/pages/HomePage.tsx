@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigation, NavigationProp } from '@react-navigation/native';
 import {
   View,
@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context'; 
 import Icon from 'react-native-vector-icons/Ionicons';
+import Tts from 'react-native-tts';  // ✅ 추가
 import { CameraView } from '../components/CameraView';
-import { PersonInfoTTS } from '../components/PersonInfoTTS';
 import { useFaceRecognition } from '../hooks/useFaceRecognition';
 import { Person } from '../types/person';
 import { RootStackParamList } from '../../App';
@@ -25,14 +25,38 @@ export const HomePage: React.FC = () => {
   const [cameraActive, setCameraActive] = useState(true);
   const [menuVisible, setMenuVisible] = useState(false);
   const menuAnimation = useState(new Animated.Value(-MENU_WIDTH))[0];
-
+  const lastSpokenPerson = useRef<string>('');  // ✅ 마지막 TTS 추적
+  
   const { recognizePerson } = useFaceRecognition();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+
+  // ✅ TTS 함수 추가
+  const speakPerson = async (name: string, relation: string) => {
+    try {
+      await Tts.setDefaultLanguage('ko-KR');
+      await Tts.setDefaultRate(0.5);
+      const message = `${relation}인 ${name}입니다.`;
+      console.log('TTS 실행:', message);
+      Tts.speak(message);
+    } catch (error) {
+      console.error('TTS 에러:', error);
+    }
+  };
 
   const handlePhotoTaken = async (base64: string) => {
     const person = await recognizePerson(base64);
     console.log('Recognized Person:', person);
-    setDetectedPerson(person);
+    
+    if (person) {
+      const personKey = `${person.name}-${person.relation}`;
+      
+      // ✅ 같은 사람이 아니거나 처음 인식한 경우만 TTS
+      if (lastSpokenPerson.current !== personKey) {
+        setDetectedPerson(person);
+        speakPerson(person.name, person.relation);
+        lastSpokenPerson.current = personKey;
+      }
+    }
   };
 
   const toggleMenu = () => {
@@ -79,18 +103,21 @@ export const HomePage: React.FC = () => {
 
   return (
     <View style={styles.container}>
-
       {/* 헤더 */}
       <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
         <View style={styles.header}>
           <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
-            <Icon name="menu" size={32} color="#000000ff" />
+            <Icon name="menu" size={32} color="#000000" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>얼굴 인식</Text>
         </View>
       </SafeAreaView>
 
-      {cameraActive && <CameraView onPhotoTaken={handlePhotoTaken} />}
+      {/* 카메라 뷰 */}
+      <View style={styles.cameraContainer}>
+        {cameraActive && <CameraView onPhotoTaken={handlePhotoTaken} />}
+      </View>
+
       {/* 오버레이 */}
       {menuVisible && (
         <TouchableWithoutFeedback onPress={closeMenu}>
@@ -107,37 +134,38 @@ export const HomePage: React.FC = () => {
           }
         ]}
       >
-        <View style={styles.menuHeader}>
-          <Text style={styles.menuTitle}>메뉴</Text>
-          <TouchableOpacity onPress={closeMenu}>
-            <Icon name="close" size={28} color="#333" />
+        <SafeAreaView edges={['top', 'left']} style={styles.menuSafeArea}>
+          <View style={styles.menuHeader}>
+            <Text style={styles.menuTitle}>메뉴</Text>
+            <TouchableOpacity onPress={closeMenu}>
+              <Icon name="close" size={28} color="#333" />
+            </TouchableOpacity>
+          </View>
+
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={goToAddPerson}
+          >
+            <Icon name="person-add" size={24} color="#4A90E2" />
+            <Text style={styles.menuItemText}>얼굴 등록하기</Text>
           </TouchableOpacity>
-        </View>
 
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={goToAddPerson}
-        >
-          <Icon name="person-add" size={24} color="#4A90E2" />
-          <Text style={styles.menuItemText}>얼굴 등록하기</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={goToPersonList}
-        >
-          <Icon name="list" size={24} color="#66BB6A" />
-          <Text style={styles.menuItemText}>등록된 사람 보기</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.menuItem}
+            onPress={goToPersonList}
+          >
+            <Icon name="list" size={24} color="#66BB6A" />
+            <Text style={styles.menuItemText}>등록된 사람 보기</Text>
+          </TouchableOpacity>
+        </SafeAreaView>
       </Animated.View>
 
-      {/* 인식 정보 */}
+      {/* 인식 정보 - PersonInfoTTS 제거 */}
       {detectedPerson && (
         <View style={styles.detectionInfo}>
           <Text style={styles.detectionText}>
             {detectedPerson.relation} {detectedPerson.name}를 인식했습니다.
           </Text>
-          <PersonInfoTTS key={Date.now()} name={detectedPerson.name} relation={detectedPerson.relation} />
         </View>
       )}
     </View>
@@ -149,12 +177,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerSafeArea: {
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     zIndex: 10,
   },
   header: {
     height: 60,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',  // 좀 더 진하게
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -163,10 +191,13 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   headerTitle: {
-    color: '#000000ff',
+    color: '#000000',
     fontSize: 20,
     fontWeight: '600',
     marginLeft: 16,
+  },
+  cameraContainer: {
+    flex: 1,
   },
   overlay: {
     position: 'absolute',
@@ -191,12 +222,15 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 5,
   },
+  menuSafeArea: {
+    flex: 1,
+  },
   menuHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
-    paddingTop: 50,
+    paddingTop: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
@@ -220,7 +254,7 @@ const styles = StyleSheet.create({
   },
   detectionInfo: {
     position: 'absolute',
-    top: 80,
+    top: 120,
     left: 20,
     right: 20,
     padding: 20,
@@ -232,6 +266,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 10,
   },
 });
