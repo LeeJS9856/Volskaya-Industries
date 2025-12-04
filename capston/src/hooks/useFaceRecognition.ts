@@ -54,22 +54,22 @@ export const useFaceRecognition = () => {
       console.log('Name:', name);
       console.log('Relation:', relation);
 
-      // Base64 데이터만 추출 (data:image/jpeg;base64, 부분 제거)
       const photoArray = Array.isArray(photos) ? photos : [photos];
-      const firstPhoto = photoArray[0];
-      const base64Data = firstPhoto.split(',')[1] || firstPhoto;
+    
+    // 모든 사진의 base64 데이터 추출
+    const base64Images = photoArray.map(photo => 
+      photo.split(',')[1] || photo
+    );
 
-      const response = await fetch(`${API_BASE_URL}/add-person`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: name,
-          relation: relation,
-          image: base64Data,
-        }),
-      });
+    const response = await fetch(`${API_BASE_URL}/add-person`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: name,
+        relation: relation,
+        images: base64Images,  // 배열로 보냄
+      }),
+    });
       const text = await response.text();
       console.log('서버 응답:', text);
 

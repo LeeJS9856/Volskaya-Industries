@@ -104,102 +104,48 @@ def recognize():
         }), 500
 
 @app.route('/add-person', methods=['POST'])
-def add_person():  # self, image_path, name, relation 제거!
-    """새로운 사람 등록"""
+def add_person():
     print("=== /add-person 요청 받음 ===")
     try:
         data = request.get_json()
         name = data.get('name')
         relation = data.get('relation')
-        image_base64 = data.get('image')
+        images_base64 = data.get('images')  # 배열로 받음
         
-        if not name or not relation or not image_base64:
+        if not name or not relation or not images_base64:
             return jsonify({'error': '필수 데이터가 누락되었습니다'}), 400
         
-        print(f"받은 데이터 - 이름: {name}, 관계: {relation}")
+        print(f"받은 이미지 수: {len(images_base64)}장")
         
-        # Base64 디코딩
-        print("Base64 디코딩 시작...")
-        image_data = base64.b64decode(image_base64)
-        print(f"디코딩된 이미지 크기: {len(image_data)} bytes")
+        # 여러 이미지를 임시 파일로 저장
+        temp_paths = []
+        for i, image_base64 in enumerate(images_base64):
+            image_data = base64.b64decode(image_base64)
+            temp_filename = f'temp_{uuid.uuid4().hex}_{i}.jpg'
+            temp_path = os.path.join('temp_images', temp_filename)
+            os.makedirs('temp_images', exist_ok=True)
+            
+            with open(temp_path, 'wb') as f:
+                f.write(image_data)
+            temp_paths.append(temp_path)
         
-        # 영문 파일명 사용
-        temp_filename = f'temp_{uuid.uuid4().hex}.jpg'
-        temp_path = os.path.join('temp_images', temp_filename)
+        # 여러 이미지로 등록
+        success, message = face_system.add_person_multiple(temp_paths, name, relation)
         
-        # temp_images 폴더 생성
-        os.makedirs('temp_images', exist_ok=True)
-        
-        # 임시 파일 저장
-        with open(temp_path, 'wb') as f:
-            f.write(image_data)
-        print(f"임시 파일 저장: {temp_path}")
-        
-        # 얼굴 등록
-        print("얼굴 등록 시작...")
-        success, message = face_system.add_person(temp_path, name, relation)
-        print(f"등록 결과: {success}, {message}")
-        
-        # 임시 파일 삭제
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-            print("임시 파일 삭제 완료")
+        # 임시 파일들 삭제
+        for path in temp_paths:
+            if os.path.exists(path):
+                os.remove(path)
         
         if success:
-            return jsonify({
-                'success': True,
-                'message': message
-            })
+            return jsonify({'success': True, 'message': message})
         else:
             return jsonify({'error': message}), 400
             
     except Exception as e:
-        print(f"!!! 예상치 못한 에러 !!!\n에러: {e}")
-        import traceback
-        traceback.print_exc()
+        print(f"!!! 에러: {e}")
         return jsonify({'error': str(e)}), 500
-    """
-    새로운 사람 추가 (DeepFace 사용)
-    """
-    try:
-        # cv2로 이미지 읽기 (한글 경로 문제 해결)
-        import cv2
-        img_array = cv2.imread(image_path)
-        
-        if img_array is None:
-            return False, "이미지를 읽을 수 없습니다."
-        
-        print(f"이미지 크기: {img_array.shape}")
-        
-        # numpy array로 직접 전달
-        embedding_objs = DeepFace.represent(
-            img_path=img_array,  # 경로 대신 array 전달
-            model_name='Facenet',
-            enforce_detection=False,
-            detector_backend='opencv'
-        )
-        
-        if len(embedding_objs) == 0:
-            return False, "사진에서 얼굴을 찾을 수 없습니다."
-        
-        face_embedding = embedding_objs[0]['embedding']
-        
-        # 데이터 추가
-        self.known_face_encodings.append(face_embedding)
-        self.known_face_names.append(name)
-        self.known_face_relations.append(relation)
-        
-        # 저장
-        self.save_known_faces()
-        print(f'✓ {name}님이 성공적으로 등록되었습니다.')
-        return True, f"{name}님이 성공적으로 등록되었습니다."
-        
-    except Exception as e:
-        print(f"등록 실패: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return False, f"오류 발생: {str(e)}"
-    
+
 @app.route('/persons', methods=['GET'])
 def get_persons():
     """등록된 모든 사람 목록"""

@@ -230,3 +230,53 @@ class FaceRecognitionSystem:
                 return False, "잘못된 ID입니다."
         except Exception as e:
             return False, f"오류 발생: {str(e)}"
+
+    def add_person_multiple(self, image_paths, name, relation):
+        """여러 이미지로 사람 등록"""
+        try:
+            embeddings = []
+            
+            for idx, image_path in enumerate(image_paths):
+                print(f"이미지 {idx+1}/{len(image_paths)} 처리 중...")
+            
+                img_array = cv2.imread(image_path)
+                if img_array is None:
+                    with open(image_path, 'rb') as f:
+                        image_bytes = f.read()
+                    img_array = cv2.imdecode(
+                        np.frombuffer(image_bytes, np.uint8), 
+                        cv2.IMREAD_COLOR
+                    )
+                
+                if img_array is None:
+                    continue
+                
+                img_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGB)
+                
+                embedding_objs = DeepFace.represent(
+                    img_path=img_array,
+                    model_name='Facenet',
+                    enforce_detection=False,
+                    detector_backend='opencv'
+                )
+                
+                if len(embedding_objs) > 0:
+                    embeddings.append(embedding_objs[0]['embedding'])
+            
+            if len(embeddings) == 0:
+                return False, "모든 사진에서 얼굴을 찾을 수 없습니다."
+            
+            # 평균 임베딩 계산
+            avg_embedding = np.mean(embeddings, axis=0).tolist()
+            
+            self.known_face_encodings.append(avg_embedding)
+            self.known_face_names.append(name)
+            self.known_face_relations.append(relation)
+            
+            self.save_known_faces()
+            print(f'✓ {name}님이 {len(embeddings)}장의 사진으로 등록되었습니다.')
+            return True, f"{name}님이 성공적으로 등록되었습니다."
+            
+        except Exception as e:
+            print(f"등록 실패: {str(e)}")
+            return False, f"오류 발생: {str(e)}"
