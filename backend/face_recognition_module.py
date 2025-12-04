@@ -177,7 +177,7 @@ class FaceRecognitionSystem:
                         confidence = round(best_similarity * 100, 2)
                         print(f"✓ 인식 성공: {name} ({relation})")
                     else:
-                        name = "모르는 사람"
+                        name = "unknown"
                         relation = ""
                         confidence = round(best_similarity * 100, 2)
                         print(f"✗ 유사도 낮음: {best_similarity:.4f}")

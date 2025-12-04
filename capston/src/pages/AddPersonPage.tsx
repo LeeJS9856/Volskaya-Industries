@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   View, 
   TextInput, 
@@ -11,12 +11,14 @@ import {
 } from 'react-native';
 import { useFaceRecognition } from '../hooks/useFaceRecognition';
 import { CameraView } from '../components/CameraView';
+import { Camera } from 'react-native-vision-camera'
 
 export const AddPersonPage: React.FC = () => {
   const [name, setName] = useState('');
   const [relation, setRelation] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [showCamera, setShowCamera] = useState(false);
+  const cameraRef = useRef<Camera | null>(null);
   const { addPerson } = useFaceRecognition();
 
   const handlePhotoTaken = (base64: string) => {
@@ -47,7 +49,9 @@ export const AddPersonPage: React.FC = () => {
   if (showCamera) {
     return (
       <View style={{ flex: 1 }}>
-        <CameraView onPhotoTaken={handlePhotoTaken} />
+        <CameraView 
+          onPhotoTaken={handlePhotoTaken} 
+          cameraRef={cameraRef}/>
         <TouchableOpacity 
           style={styles.backButton}
           onPress={() => setShowCamera(false)}
