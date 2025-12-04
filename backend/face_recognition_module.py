@@ -82,9 +82,9 @@ class FaceRecognitionSystem:
             # numpy array로 직접 전달
             embedding_objs = DeepFace.represent(
                 img_path=img_array,  # 경로 대신 array 전달
-                model_name='Facenet',
-                enforce_detection=False,  # False로 설정
-                detector_backend='opencv'
+                model_name='ArcFace',
+                enforce_detection=False,
+                detector_backend='retinaface'
             )
             
             if len(embedding_objs) == 0:
@@ -128,9 +128,9 @@ class FaceRecognitionSystem:
             print("DeepFace.represent 호출...")
             embedding_objs = DeepFace.represent(
                 img_path=image_data,
-                model_name='Facenet',
+                model_name='ArcFace',
                 enforce_detection=False,
-                detector_backend='opencv'
+                detector_backend='retinaface'
             )
             
             print(f"DeepFace 결과: {len(embedding_objs)}개의 얼굴 감지")
@@ -167,7 +167,7 @@ class FaceRecognitionSystem:
                     print(f"최고 유사도: {best_similarity:.4f} ({self.known_face_names[best_match_idx]})")
                     
                     # 임계값 설정
-                    if best_similarity > 0.6:
+                    if best_similarity > 0.7:
                         name = self.known_face_names[best_match_idx]
                         relation = self.known_face_relations[best_match_idx]
                         confidence = round(best_similarity * 100, 2)
@@ -255,9 +255,9 @@ class FaceRecognitionSystem:
                 
                 embedding_objs = DeepFace.represent(
                     img_path=img_array,
-                    model_name='Facenet',
+                    model_name='ArcFace',
                     enforce_detection=False,
-                    detector_backend='opencv'
+                    detector_backend='retinaface'
                 )
                 
                 if len(embedding_objs) > 0:

@@ -17,7 +17,7 @@ const App = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator initialRouteName="Home">
-        <Stack.Screen name="Home" component={HomePage} options={{ title: '홈' }} />
+        <Stack.Screen name="Home" component={HomePage} options={{ headerShown: false }} />
         <Stack.Screen name="AddPersonPage" component={AddPersonPage} options={{ title: '인물 등록' }} />
         <Stack.Screen name="PersonListPage" component={PersonListPage} options={{ title: '등록된 인물 목록' }} />
       </Stack.Navigator>

@@ -7,8 +7,9 @@ import {
   StyleSheet,
   Animated,
   Dimensions,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context'; 
 import Icon from 'react-native-vector-icons/Ionicons';
 import { CameraView } from '../components/CameraView';
 import { PersonInfoTTS } from '../components/PersonInfoTTS';
@@ -78,16 +79,18 @@ export const HomePage: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {cameraActive && <CameraView onPhotoTaken={handlePhotoTaken} />}
 
       {/* 헤더 */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
-          <Icon name="menu" size={32} color="#FFFFFF" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>얼굴 인식</Text>
-      </View>
+      <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={toggleMenu} style={styles.menuButton}>
+            <Icon name="menu" size={32} color="#000000ff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>얼굴 인식</Text>
+        </View>
+      </SafeAreaView>
 
+      {cameraActive && <CameraView onPhotoTaken={handlePhotoTaken} />}
       {/* 오버레이 */}
       {menuVisible && (
         <TouchableWithoutFeedback onPress={closeMenu}>
@@ -145,24 +148,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+  headerSafeArea: {
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    zIndex: 10,
+  },
   header: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
     height: 60,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',  // 좀 더 진하게
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 10,
-    zIndex: 10,
   },
   menuButton: {
     padding: 8,
   },
   headerTitle: {
-    color: '#FFFFFF',
+    color: '#000000ff',
     fontSize: 20,
     fontWeight: '600',
     marginLeft: 16,
