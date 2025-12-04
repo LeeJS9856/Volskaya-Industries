@@ -167,7 +167,7 @@ class FaceRecognitionSystem:
                     print(f"최고 유사도: {best_similarity:.4f} ({self.known_face_names[best_match_idx]})")
                     
                     # 임계값 설정
-                    if best_similarity > 0.4:
+                    if best_similarity > 0.6:
                         name = self.known_face_names[best_match_idx]
                         relation = self.known_face_relations[best_match_idx]
                         confidence = round(best_similarity * 100, 2)
