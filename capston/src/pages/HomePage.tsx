@@ -28,6 +28,7 @@ export const HomePage: React.FC = () => {
   const [detectedPerson, setDetectedPerson] = useState<Person | null>(null);
   const [cameraActive, setCameraActive] = useState(true);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [recognitionKey, setRecognitionKey] = useState(0);
   const menuAnimation = useState(new Animated.Value(-MENU_WIDTH))[0];
   const cameraRef = useRef<Camera | null>(null);
 
@@ -70,7 +71,8 @@ export const HomePage: React.FC = () => {
         
         if (person) {
           setDetectedPerson(person);
-          
+          setRecognitionKey(prev => prev + 1);
+
           // ESP32로 JSON 전송
           const resultJson = JSON.stringify({
             name: person.name,
@@ -82,6 +84,7 @@ export const HomePage: React.FC = () => {
           
         } else {
           console.log('❌ 인식 실패 또는 모르는 사람');
+          
           // 모르는 사람인 경우에도 전송
           const unknownJson = JSON.stringify({
             name: "unknown",
@@ -100,6 +103,7 @@ export const HomePage: React.FC = () => {
     const person = await recognizePerson(base64);
     console.log('Recognized Person:', person);
     setDetectedPerson(person);
+    setRecognitionKey(prev => prev + 1);
   };
 
   const toggleMenu = () => {
@@ -263,6 +267,7 @@ export const HomePage: React.FC = () => {
             {detectedPerson.relation} {detectedPerson.name}를 인식했습니다.
           </Text>
           <PersonInfoTTS 
+            key={recognitionKey}
             name={detectedPerson.name} 
             relation={detectedPerson.relation} 
           />
